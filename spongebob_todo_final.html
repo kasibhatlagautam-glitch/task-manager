@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SpongeBob Todo</title>
+
+<style>
+
+body {
+    margin: 0;
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+
+    font-family: Arial, sans-serif;
+
+    background-image:
+        linear-gradient(
+            rgba(0,0,0,0.45),
+            rgba(0,0,0,0.45)
+        ),
+        url("https://c4.wallpaperflare.com/wallpaper/23/174/351/spongebob-squarepants-patrick-star-cartoon-humor-wallpaper-preview.jpg");
+
+    background-size: cover;
+    background-position: center;
+    background-attachment: fixed;
+}
+
+.container {
+
+    width: 420px;
+
+    background: rgba(255,255,255,0.92);
+
+    border-radius: 22px;
+
+    padding: 28px;
+
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+
+    transition: 0.3s ease;
+}
+
+.dark-mode {
+    background: rgba(20,20,20,0.92);
+    color: white;
+}
+
+.dark-mode input {
+    background: #2f2f2f;
+    color: white;
+    border: 1px solid #555;
+}
+
+.dark-mode li {
+    background: #333;
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 5px;
+}
+
+.date-text {
+    text-align: center;
+    margin-bottom: 25px;
+    opacity: 0.8;
+}
+
+input {
+    width: 100%;
+    box-sizing: border-box;
+
+    padding: 12px;
+
+    margin-bottom: 12px;
+
+    border-radius: 12px;
+    border: 1px solid #ccc;
+}
+
+button {
+
+    width: 100%;
+
+    padding: 12px;
+
+    border: none;
+    border-radius: 12px;
+
+    background: #1f1f1f;
+    color: white;
+
+    cursor: pointer;
+
+    margin-bottom: 10px;
+
+    font-size: 15px;
+}
+
+button:hover {
+    opacity: 0.92;
+}
+
+.hidden {
+    display: none;
+}
+
+ul {
+    list-style: none;
+    padding: 0;
+}
+
+li {
+
+    background: #f1f3f5;
+
+    padding: 14px;
+
+    border-radius: 12px;
+
+    margin-top: 10px;
+
+    transition: 0.2s ease;
+}
+
+.task-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.task-row input[type="checkbox"] {
+    margin: 0;
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+}
+
+.task-row span {
+    flex: 1;
+    text-align: left;
+    font-size: 16px;
+}
+
+
+</style>
+</head>
+
+<body>
+
+<div class="container" id="container">
+
+    <h1>To Do</h1>
+
+    <div class="date-text" id="dateText"></div>
+
+    <div id="authSection">
+
+        <input
+            type="text"
+            id="username"
+            placeholder="Username"
+        >
+
+        <input
+            type="password"
+            id="password"
+            placeholder="Password"
+        >
+
+        <button onclick="registerUser()">
+            Register
+        </button>
+
+        <button onclick="loginUser()">
+            Login
+        </button>
+
+    </div>
+
+    <div id="taskSection" class="hidden">
+
+        <input
+            type="text"
+            id="taskInput"
+            placeholder="Add task..."
+        >
+
+        <button onclick="addTask()">
+            Add Task
+        </button>
+
+        <button onclick="toggleDarkMode()">
+            Toggle Dark Mode
+        </button>
+
+        <ul id="taskList"></ul>
+
+        <div class="counter" id="taskCounter">
+            0 Tasks
+        </div>
+
+    </div>
+
+</div>
+
+<script>
+
+const BASE_URL = "http://localhost:8080";
+
+const options = {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric"
+};
+
+document.getElementById("dateText")
+    .innerText =
+    new Date().toLocaleDateString(
+        "en-US",
+        options
+    );
+
+function updateCounter(count) {
+
+    document.getElementById("taskCounter")
+        .innerText = count + " Tasks";
+}
+
+async function registerUser() {
+
+    const username =
+        document.getElementById("username").value;
+
+    const password =
+        document.getElementById("password").value;
+
+    const response = await fetch(
+        BASE_URL + "/auth/register",
+        {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                username,
+                password
+            })
+        }
+    );
+
+    if(response.ok) {
+        alert("Registered!");
+    }
+    else {
+        alert("Register failed");
+    }
+}
+
+async function loginUser() {
+
+    const username =
+        document.getElementById("username").value;
+
+    const password =
+        document.getElementById("password").value;
+
+    const response = await fetch(
+        BASE_URL + "/auth/login",
+        {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json"
+            },
+
+            body: JSON.stringify({
+                username,
+                password
+            })
+        }
+    );
+
+    if(response.ok) {
+
+        const token =
+            await response.text();
+
+        localStorage.setItem(
+            "token",
+            token
+        );
+
+        document
+            .getElementById("authSection")
+            .classList.add("hidden");
+
+        document
+            .getElementById("taskSection")
+            .classList.remove("hidden");
+
+        loadTasks();
+    }
+    else {
+        alert("Login failed");
+    }
+}
+
+async function loadTasks() {
+
+    const response = await fetch(
+        BASE_URL + "/tasks",
+        {
+            headers: {
+                "Authorization":
+                    "Bearer " +
+                    localStorage.getItem("token")
+            }
+        }
+    );
+
+    const tasks = await response.json();
+
+    const taskList =
+        document.getElementById("taskList");
+
+    taskList.innerHTML = "";
+
+    tasks.forEach(task => {
+
+        const li =
+            document.createElement("li");
+
+        li.innerHTML = `
+    <div class="task-row">
+
+        <input
+            type="checkbox"
+            onchange="completeTask(${task.id}, this)"
+        >
+
+        <span>${task.title}</span>
+
+    </div>
+`;
+
+        taskList.appendChild(li);
+    });
+
+    updateCounter(tasks.length);
+}
+
+async function addTask() {
+
+    const title =
+        document.getElementById("taskInput").value;
+
+    if(title.trim() === "") {
+        return;
+    }
+
+    const response = await fetch(
+        BASE_URL + "/tasks",
+        {
+            method: "POST",
+
+            headers: {
+                "Content-Type": "application/json",
+
+                "Authorization":
+                    "Bearer " +
+                    localStorage.getItem("token")
+            },
+
+            body: JSON.stringify({
+                title,
+                completed: false
+            })
+        }
+    );
+
+    if(response.ok) {
+
+        document.getElementById("taskInput")
+            .value = "";
+
+        loadTasks();
+    }
+}
+
+async function completeTask(id, checkbox) {
+
+    const span =
+        checkbox.parentElement.querySelector("span");
+
+    span.classList.add("completed");
+
+    setTimeout(async () => {
+
+        await fetch(
+            BASE_URL + "/tasks/" + id,
+            {
+                method: "DELETE",
+
+                headers: {
+                    "Authorization":
+                        "Bearer " +
+                        localStorage.getItem("token")
+                }
+            }
+        );
+
+        loadTasks();
+
+    }, 400);
+}
+
+function toggleDarkMode() {
+
+    document
+        .getElementById("container")
+        .classList.toggle("dark-mode");
+}
+
+</script>
+
+</body>
+</html>
